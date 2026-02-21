@@ -1,0 +1,18 @@
+name: lunarlander-distill
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - "gymnasium[box2d]>=1.0.0"
+      - "stable-baselines3>=2.4.0"
+      - "huggingface_hub==0.24.6"
+      - "torch"
+      - "numpy>=2"
+      - "matplotlib"
+      - "tqdm"
+      - "pandas"
+      - "pytest"
+variables:
+  PIP_NO_BUILD_ISOLATION: "1"

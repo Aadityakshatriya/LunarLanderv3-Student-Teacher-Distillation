@@ -1,0 +1,28 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.venv/
+.vscode/
+.idea/
+.env
+.DS_Store
+outputs/
+logs/
+experiments/
+models/
+
+# TensorBoard
+**/tb/
+**/events.out.tfevents.*
+
+# Checkpoints / archives
+*.zip
+*.npz
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
