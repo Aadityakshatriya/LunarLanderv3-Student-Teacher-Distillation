@@ -67,6 +67,13 @@ python scripts/compare_students.py \
 
 This prints a markdown table and logs it to TensorBoard (Text tab).
 
+**Play an Episode (Teacher/Baseline/Distilled)**
+```bash
+python -m scripts.play_agent --agent teacher --seed 7
+python -m scripts.play_agent --agent baseline --seed 7
+python -m scripts.play_agent --agent distilled --seed 7
+```
+
 **Live Dashboard**
 ```bash
 tensorboard --logdir "./logs"
@@ -75,6 +82,6 @@ Open the URL it prints (usually `http://localhost:6006`).
 
 **Notes**
 - `train_teacher.py` uses an eval callback and a custom tqdm progress bar with live metrics.
-- `scripts/distill_student.py` logs only `distill/loss` and `distill/mean_reward`.
+- `scripts/distill_student.py` uses hybrid PPO + KL distillation and logs only `distill/loss` and `distill/mean_reward`.
 - `scripts/train_student_baseline.py` logs only `baseline/loss` and `baseline/mean_reward`.
 - `scripts/compare_students.py` estimates landing success rate from `info["is_success"]` or reward ≥ 200.
