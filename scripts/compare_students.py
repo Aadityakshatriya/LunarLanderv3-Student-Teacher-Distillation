@@ -49,41 +49,30 @@ def evaluate_with_success(
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--env-id", type=str, default="LunarLander-v3")
-    ap.add_argument("--teacher-path", type=str, default="./logs/best_model.zip")
-    ap.add_argument("--student-path", type=str, default="./distilled_student_lunar.zip")
+    ap.add_argument("--baseline-path", type=str, default="./baseline_student_lunar.zip")
+    ap.add_argument("--distilled-path", type=str, default="./distilled_student_lunar.zip")
     ap.add_argument("--episodes", type=int, default=100)
-    ap.add_argument("--student-hidden", type=int, default=16)
     ap.add_argument("--log-dir", type=str, default="./logs/distill_tb")
     args = ap.parse_args()
 
-    env_id = args.env_id
+    baseline_path = Path(args.baseline_path)
+    if not baseline_path.exists():
+        raise FileNotFoundError(f"Baseline model not found: {baseline_path}")
+    distilled_path = Path(args.distilled_path)
+    if not distilled_path.exists():
+        raise FileNotFoundError(f"Distilled model not found: {distilled_path}")
 
-    teacher = PPO.load(args.teacher_path, device="auto")
+    baseline = PPO.load(baseline_path, device="auto")
+    distilled = PPO.load(distilled_path, device="auto")
 
-    # Baseline (untrained tiny student)
-    dummy_env = gym.make(env_id)
-    baseline = PPO(
-        "MlpPolicy",
-        dummy_env,
-        policy_kwargs={"net_arch": [int(args.student_hidden)]},
-        verbose=0,
-        device="auto",
-    )
-
-    distilled = PPO.load(args.student_path, device="auto")
-
-    teacher_mean, _teacher_std, teacher_succ = evaluate_with_success(
-        teacher, env_id, n_episodes=int(args.episodes)
-    )
     baseline_mean, _baseline_std, baseline_succ = evaluate_with_success(
-        baseline, env_id, n_episodes=int(args.episodes)
+        baseline, args.env_id, n_episodes=int(args.episodes)
     )
     distilled_mean, _distilled_std, distilled_succ = evaluate_with_success(
-        distilled, env_id, n_episodes=int(args.episodes)
+        distilled, args.env_id, n_episodes=int(args.episodes)
     )
 
     rows = [
-        ("Teacher (Full)", count_params(teacher), teacher_mean, teacher_succ),
         ("Student (Baseline)", count_params(baseline), baseline_mean, baseline_succ),
         ("Student (Distilled)", count_params(distilled), distilled_mean, distilled_succ),
     ]
@@ -101,8 +90,6 @@ def main() -> int:
     writer = SummaryWriter(log_dir=str(Path(args.log_dir)))
     writer.add_text("comparison/table", md_table)
     writer.close()
-
-    dummy_env.close()
     return 0
 
 
