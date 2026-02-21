@@ -17,14 +17,16 @@ if str(SRC) not in sys.path:
 
 from lunarlander_distill.envs import maybe_set_torch_determinism, set_global_seeds
 from lunarlander_distill.eval import evaluate_policy_deterministic
-from lunarlander_distill.teacher import download_teacher_zip
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--hf-repo-id", type=str, required=True)
-    ap.add_argument("--hf-filename", type=str, default=None)
-    ap.add_argument("--hf-token", type=str, default=None)
+    ap.add_argument(
+        "--teacher-path",
+        type=Path,
+        default=Path("./logs/best_model.zip"),
+        help="Path to locally trained teacher (from train_teacher.py).",
+    )
     ap.add_argument("--env-id", type=str, default="LunarLander-v3")
     ap.add_argument("--seed", type=int, default=123)
     ap.add_argument("--n-eval-episodes", type=int, default=20)
@@ -43,12 +45,13 @@ def main() -> int:
     run_dir = args.outputs_dir / datetime.now().strftime("teacher_eval_%Y%m%d_%H%M%S")
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    teacher_zip = download_teacher_zip(
-        repo_id=args.hf_repo_id,
-        filename=args.hf_filename,
-        token=args.hf_token,
-    )
-    teacher = PPO.load(teacher_zip, device=args.device)
+    teacher_path = Path(args.teacher_path)
+    if not teacher_path.exists():
+        raise FileNotFoundError(
+            f"Teacher not found at {teacher_path}. "
+            "Train a teacher with train_teacher.py or pass --teacher-path."
+        )
+    teacher = PPO.load(teacher_path, device=args.device)
 
     metrics = evaluate_policy_deterministic(
         model=teacher,
@@ -60,8 +63,7 @@ def main() -> int:
 
     out = {
         "config": {
-            "hf_repo_id": args.hf_repo_id,
-            "hf_filename": args.hf_filename,
+            "teacher_path": str(teacher_path),
             "env_id": args.env_id,
             "seed": int(args.seed),
             "n_eval_episodes": int(args.n_eval_episodes),

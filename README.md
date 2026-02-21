@@ -1,56 +1,69 @@
-# LunarLander-v3: Baseline vs Distillation (Teacher KL)
+# LunarLander-v3 Distillation
 
-This repo runs a comparison experiment on **LunarLander-v3** for small student networks.
+Train a **heavy PPO teacher** on `LunarLander-v3`, then **distill** it into a **tiny PPO student** with KL divergence on action logits. The live dashboard shows **only**:
+- `distill/loss` vs steps
+- `distill/mean_reward` vs steps
 
-## Setup (conda)
-
+**Setup**
 ```bash
 conda env create -f environment.yml
 conda activate lunarlander-distill
-python -m pip install -e .
 ```
 
-## Run the comparison experiment
-
-Default: architectures `[ (4,), (8,), (16,), (64,) ]`, **200,000** steps each, **20** deterministic eval episodes, seed **123**.
-
+Progress bars and TensorBoard require extra packages:
 ```bash
-python -m scripts.run_comparison \
-  --hf-repo-id "sb3/ppo-LunarLander-v3" \
-  --seed 123 \
-  --total-timesteps 200000 \
-  --n-eval-episodes 20
+python -m pip install rich tensorboard "setuptools==65.5.1"
 ```
 
-Outputs go to `outputs/<run_id>/`:
-- `results.json`
-- `comparison.png`
-
-## Quick smoke run (fast)
-
+**Train Teacher**
 ```bash
-python -m scripts.run_comparison \
-  --hf-repo-id "sb3/ppo-LunarLander-v3" \
-  --seed 123 \
-  --total-timesteps 2000 \
-  --n-eval-episodes 2
+python train_teacher.py
 ```
 
-## Evaluate the teacher only (deterministic)
+Outputs:
+- `./logs/best_model.zip` (teacher checkpoint)
+- `./logs/tb/` (TensorBoard logs)
 
+All evaluation/distillation utilities use a **local teacher path** only (no HF downloads). By default they read:
+`./logs/best_model.zip` and can be overridden with `--teacher-path`.
+
+**Local-Only Utilities**
 ```bash
-python -m scripts.eval_teacher \
-  --hf-repo-id "sb3/ppo-LunarLander-v3" \
-  --seed 123 \
-  --n-eval-episodes 20
+python -m scripts.verify_setup --teacher-path "./logs/best_model.zip"
+python -m scripts.eval_teacher --teacher-path "./logs/best_model.zip"
+python -m scripts.run_comparison --teacher-path "./logs/best_model.zip"
 ```
 
-Outputs go to `outputs/teacher_eval_<timestamp>/`:
-- `metrics.json`
-- `returns.png`
-- `lengths.png`
+**Distill Tiny Student (KL)**
+```bash
+python scripts/distill_student.py \
+  --teacher-path "./logs/best_model.zip" \
+  --total-timesteps 1000000 \
+  --eval-every 10000 \
+  --eval-episodes 10 \
+  --student-hidden 16 \
+  --log-dir "./logs/distill_tb" \
+  --out-path "./distilled_student_lunar.zip"
+```
 
-## Notes
-- Distillation uses hybrid loss: `alpha * KL(teacher||student) + (1-alpha) * PPO_loss`, with `alpha=0.7`.
-- Evaluation is deterministic: `model.predict(..., deterministic=True)` and per-episode seeds `seed + episode_index`.
-- Teacher is downloaded from Hugging Face (SB3 `.zip` file) via `huggingface_hub`.
+**Comparison Table (Teacher vs Student)**
+```bash
+python scripts/compare_models.py \
+  --teacher-path "./logs/best_model.zip" \
+  --student-path "./distilled_student_lunar.zip" \
+  --episodes 100 \
+  --log-dir "./logs/distill_tb"
+```
+
+This prints a markdown table and logs it to TensorBoard (Text tab).
+
+**Live Dashboard**
+```bash
+tensorboard --logdir "./logs/distill_tb"
+```
+Open the URL it prints (usually `http://localhost:6006`).
+
+**Notes**
+- `train_teacher.py` uses an eval callback and a custom tqdm progress bar with live metrics.
+- `scripts/distill_student.py` logs only `distill/loss` and `distill/mean_reward`.
+- `scripts/compare_models.py` estimates landing success rate from `info["is_success"]` or reward ≥ 200.

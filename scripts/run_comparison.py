@@ -22,7 +22,6 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from lunarlander_distill.distill_ppo import DistillConfig, DistillPPO
 from lunarlander_distill.envs import maybe_set_torch_determinism, set_global_seeds
 from lunarlander_distill.eval import evaluate_policy_deterministic
-from lunarlander_distill.teacher import download_teacher_zip
 from lunarlander_distill.tqdm_callback import TqdmConfig, TqdmProgressCallback
 
 
@@ -39,8 +38,7 @@ class RunConfig:
     alpha: float = 0.7
     n_envs: int = 8
     device: str = "auto"
-    hf_repo_id: str = "sb3/ppo-LunarLander-v3"
-    hf_filename: str | None = None
+    teacher_path: Path = Path("./logs/best_model.zip")
     outputs_dir: Path = Path("outputs")
 
 
@@ -80,8 +78,12 @@ def _save_plot(
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--hf-repo-id", type=str, default="sb3/ppo-LunarLander-v3")
-    ap.add_argument("--hf-filename", type=str, default=None)
+    ap.add_argument(
+        "--teacher-path",
+        type=Path,
+        default=Path("./logs/best_model.zip"),
+        help="Path to locally trained teacher (from train_teacher.py).",
+    )
     ap.add_argument("--env-id", type=str, default="LunarLander-v3")
     ap.add_argument("--total-timesteps", type=int, default=200_000)
     ap.add_argument("--n-eval-episodes", type=int, default=20)
@@ -103,8 +105,7 @@ def main() -> int:
         alpha=args.alpha,
         n_envs=args.n_envs,
         device=args.device,
-        hf_repo_id=args.hf_repo_id,
-        hf_filename=args.hf_filename,
+        teacher_path=Path(args.teacher_path),
         outputs_dir=args.outputs_dir,
     )
 
@@ -112,8 +113,13 @@ def main() -> int:
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # Load teacher once
-    teacher_zip = download_teacher_zip(repo_id=cfg.hf_repo_id, filename=cfg.hf_filename)
-    teacher = PPO.load(teacher_zip, device=cfg.device)
+    teacher_path = Path(cfg.teacher_path)
+    if not teacher_path.exists():
+        raise FileNotFoundError(
+            f"Teacher not found at {teacher_path}. "
+            "Train a teacher with train_teacher.py or pass --teacher-path."
+        )
+    teacher = PPO.load(teacher_path, device=cfg.device)
 
     results = {
         "size": [a[0] for a in cfg.archs],
