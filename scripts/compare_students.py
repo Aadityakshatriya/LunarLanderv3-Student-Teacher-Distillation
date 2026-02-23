@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import sys
 
 import gymnasium as gym
 import numpy as np
 from stable_baselines3 import PPO
 from torch.utils.tensorboard import SummaryWriter
+
+# Allow running this script without `pip install -e .`
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
 
 def count_params(model: PPO) -> int:
